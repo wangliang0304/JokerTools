@@ -1,0 +1,17 @@
+{
+  "toutiao": {
+    "blogger_url": "https://www.toutiao.com/c/user/token/MS4wLjABAAAAu8TLqbwurnpNAkvSb1SB60loMjrybIwxT3py56-uKRM/?source=profile&tab=article",
+    "check_interval_minutes": 30
+  },
+  "feishu": {
+    "webhook_url": "https://open.feishu.cn/open-apis/bot/v2/hook/ffb78fcc-0d4a-493b-b408-4cdd2f5d82ef",
+    "secret": "sT7hHtsU1M3jaRauxFKGMb"
+  },
+  "database": {
+    "path": "articles.db"
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "monitor.log"
+  }
+}
