@@ -171,10 +171,13 @@ class ArticleMonitor:
         except Exception as e:
             logging.error(f"检查周期执行失败: {e}")
 
-    def test_system(self) -> bool:
+    def test_system(self, send_test_notification: bool = True) -> bool:
         """
         测试系统各组件
-        
+
+        Args:
+            send_test_notification: 是否发送测试通知
+
         Returns:
             bool: 测试通过返回True
         """
@@ -202,12 +205,15 @@ class ArticleMonitor:
                 return False
             logging.info("数据库测试通过")
 
-            # 测试飞书通知
-            logging.info("测试飞书通知组件...")
-            if not self.notifier.test_connection():
-                logging.error("飞书通知测试失败")
-                return False
-            logging.info("飞书通知测试通过")
+            # 测试飞书通知（可选）
+            if send_test_notification:
+                logging.info("测试飞书通知组件...")
+                if not self.notifier.test_connection():
+                    logging.error("飞书通知测试失败")
+                    return False
+                logging.info("飞书通知测试通过")
+            else:
+                logging.info("跳过飞书通知测试")
 
             logging.info("系统测试全部通过")
             return True
@@ -216,13 +222,22 @@ class ArticleMonitor:
             logging.error(f"系统测试失败: {e}")
             return False
 
+    def test_system_with_notification(self) -> bool:
+        """
+        完整测试系统各组件（包括发送测试通知）
+
+        Returns:
+            bool: 测试通过返回True
+        """
+        return self.test_system(send_test_notification=True)
+
     def start_monitoring(self):
         """启动监控服务"""
         try:
             logging.info("启动文章监控服务...")
 
-            # 系统测试
-            if not self.test_system():
+            # 系统测试（不发送测试通知）
+            if not self.test_system(send_test_notification=False):
                 logging.error("系统测试失败，无法启动监控服务")
                 return
 

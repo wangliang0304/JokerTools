@@ -112,7 +112,7 @@ def cmd_test(args):
     
     try:
         monitor = ArticleMonitor(args.config)
-        if monitor.test_system():
+        if monitor.test_system_with_notification():
             print("✅ 系统测试通过")
             return 0
         else:

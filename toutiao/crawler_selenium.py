@@ -57,6 +57,8 @@ class ToutiaoSeleniumCrawler:
                 options.add_argument('--headless')
             
             # 反检测设置
+            options.add_argument("--disable-gcm")   # 禁用GCM，避免被检测
+            options.add_argument("--disable-notifications")
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
             options.add_argument('--disable-blink-features=AutomationControlled')
@@ -65,8 +67,16 @@ class ToutiaoSeleniumCrawler:
             options.add_argument('--disable-extensions')
             options.add_argument('--disable-plugins')
             options.add_argument('--disable-images')
-            options.add_argument(f'--user-agent={self.ua.random}')
+
+            # 使用PC端User-Agent确保访问PC版页面
+            pc_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            options.add_argument(f'--user-agent={pc_user_agent}')
+
+            # 设置窗口大小为PC端 # 这个很重要，如果是移动端，会有加载数据不全的问题
             options.add_argument('--window-size=1920,1080')
+
+            # 设置视口大小
+            options.add_argument('--viewport-size=1920,1080')
             
             # 使用webdriver-manager自动管理ChromeDriver
             service = Service(ChromeDriverManager().install())
@@ -74,7 +84,10 @@ class ToutiaoSeleniumCrawler:
             
             # 执行反检测脚本
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-            
+
+            # 设置窗口大小确保PC模式
+            self.driver.set_window_size(1920, 1080)
+
             logging.info("Selenium WebDriver初始化成功")
             
         except Exception as e:
@@ -114,17 +127,23 @@ class ToutiaoSeleniumCrawler:
             self.driver.get(blogger_url)
             
             # 等待页面加载
-            time.sleep(random.uniform(10, 15))
+            time.sleep(random.uniform(30, 35))
             
             # 等待文章列表加载
             try:
-                WebDriverWait(self.driver, 10).until(
-                    EC.presence_of_element_located((By.TAG_NAME, "a"))
+                WebDriverWait(self.driver, 15).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, "profile-article-card-wrapper"))
                 )
+                logging.info("文章容器加载成功")
             except:
-                logging.warning("等待页面加载超时")
-            
-            # 滚动页面以加载更多内容
+                logging.warning("等待文章容器加载超时，尝试继续")
+
+            # # 滚动页面以触发内容加载
+            # logging.debug("滚动页面以触发内容加载...")
+            # self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            # time.sleep(3)
+            #
+            # # 再次滚动确保内容完全加载
             # self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(2)
             

@@ -13,17 +13,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def test_selenium_crawler():
     """测试Selenium爬虫"""
     print("🚀 测试Selenium爬虫...")
-    
+
     try:
         # 初始化爬虫（使用有头模式便于调试）
         crawler = ToutiaoSeleniumCrawler(headless=False)
-        
+
         # 使用示例博主URL
         blogger_url = "https://www.toutiao.com/c/user/token/MS4wLjABAAAAu8TLqbwurnpNAkvSb1SB60loMjrybIwxT3py56-uKRM/?source=profile&tab=article"
-        
+
         print(f"正在从博主URL获取文章...")
         print(f"访问URL: {blogger_url}")
-        
+
         # 测试获取文章列表
         articles = crawler.get_articles_from_url(blogger_url, max_count=3)
         
