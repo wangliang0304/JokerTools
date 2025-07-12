@@ -291,4 +291,7 @@ class ArticleMonitor:
 
 
 if __name__ == '__main__':
-    ArticleMonitor().run_check_cycle()
+    # 手动执行监控一次
+    # ArticleMonitor().run_check_cycle()
+    # 开启监控服务
+    ArticleMonitor().start_monitoring()
