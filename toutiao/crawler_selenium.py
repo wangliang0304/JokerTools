@@ -56,35 +56,35 @@ class ToutiaoSeleniumCrawler:
             if self.headless:
                 options.add_argument('--headless')
             
-            # 反检测设置
-            options.add_argument("--disable-gcm")   # 禁用GCM，避免被检测
-            options.add_argument("--disable-notifications")
+            # 添加稳定性选项
             options.add_argument('--no-sandbox')
             options.add_argument('--disable-dev-shm-usage')
-            options.add_argument('--disable-blink-features=AutomationControlled')
-            options.add_experimental_option("excludeSwitches", ["enable-automation"])
-            options.add_experimental_option('useAutomationExtension', False)
+            options.add_argument('--disable-gpu')
             options.add_argument('--disable-extensions')
             options.add_argument('--disable-plugins')
             options.add_argument('--disable-images')
-
-            # 使用PC端User-Agent确保访问PC版页面
-            pc_user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-            options.add_argument(f'--user-agent={pc_user_agent}')
-
-            # 设置窗口大小为PC端 # 这个很重要，如果是移动端，会有加载数据不全的问题
+            options.add_argument('--disable-javascript')
+            options.add_argument('--memory-pressure-off')
+            options.add_argument('--max_old_space_size=4096')
+            
+            # 设置窗口大小为PC端
             options.add_argument('--window-size=1920,1080')
-
-            # 设置视口大小
             options.add_argument('--viewport-size=1920,1080')
+            
+            # 设置用户代理
+            options.add_argument(f'--user-agent={self.ua.random}')
             
             # 使用webdriver-manager自动管理ChromeDriver
             service = Service(ChromeDriverManager().install())
             self.driver = webdriver.Chrome(service=service, options=options)
             
+            # 设置超时时间
+            self.driver.set_page_load_timeout(60)
+            self.driver.implicitly_wait(10)
+            
             # 执行反检测脚本
             self.driver.execute_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
-
+            
             # 设置窗口大小确保PC模式
             self.driver.set_window_size(1920, 1080)
 
@@ -102,18 +102,30 @@ class ToutiaoSeleniumCrawler:
             except:
                 pass
     
+    def _ensure_driver_alive(self):
+        """确保WebDriver处于活跃状态"""
+        try:
+            # 尝试获取当前窗口句柄来检测driver是否还活着
+            self.driver.current_window_handle
+            return True
+        except Exception as e:
+            logging.warning(f"WebDriver已失效: {e}")
+            try:
+                self.driver.quit()
+            except:
+                pass
+            self.driver = None
+            self.setup_driver()
+            return True
+
     def get_articles_from_url(self, blogger_url: str, max_count: int = 10) -> List[Dict]:
         """
         直接从博主URL获取文章列表
-        
-        Args:
-            blogger_url: 博主URL链接
-            max_count: 最大获取文章数量
-            
-        Returns:
-            List[Dict]: 文章列表
         """
         try:
+            # 确保WebDriver处于活跃状态
+            self._ensure_driver_alive()
+            
             # 确保URL包含正确的参数
             if '?source=profile&tab=article' not in blogger_url:
                 if '?' in blogger_url:
@@ -138,13 +150,6 @@ class ToutiaoSeleniumCrawler:
             except:
                 logging.warning("等待文章容器加载超时，尝试继续")
 
-            # # 滚动页面以触发内容加载
-            # logging.debug("滚动页面以触发内容加载...")
-            # self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            # time.sleep(3)
-            #
-            # # 再次滚动确保内容完全加载
-            # self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
             time.sleep(2)
             
             # 获取页面源码
@@ -157,6 +162,14 @@ class ToutiaoSeleniumCrawler:
                 
         except Exception as e:
             logging.error(f"从URL获取文章失败: {e}")
+            # 如果是WebDriver相关错误，尝试重新初始化
+            if "no such window" in str(e) or "web view not found" in str(e):
+                logging.info("检测到WebDriver失效，尝试重新初始化...")
+                try:
+                    self.setup_driver()
+                    return self.get_articles_from_url(blogger_url, max_count)
+                except Exception as retry_e:
+                    logging.error(f"重新初始化WebDriver失败: {retry_e}")
             return []
     
     def _parse_articles_from_html(self, html_content: str, max_count: int) -> List[Dict]:

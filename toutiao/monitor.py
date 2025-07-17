@@ -151,25 +151,51 @@ class ArticleMonitor:
         return success_count
 
     def run_check_cycle(self):
-        """运行一次检查周期"""
+        """执行一次检查周期"""
         try:
-            start_time = datetime.now()
-            logging.info(f"开始执行检查周期: {start_time}")
-
-            # 检查新文章
-            new_articles = self.check_new_articles()
-
-            # 发送通知
+            logging.info("开始检查新文章...")
+            
+            # 获取最新文章
+            latest_articles = self.crawler.get_latest_articles(
+                self.config['toutiao']['blogger_url'],
+                limit=10
+            )
+            
+            if not latest_articles:
+                logging.warning("未获取到任何文章")
+                # 检查是否需要重新初始化爬虫
+                if hasattr(self.crawler, '_ensure_driver_alive'):
+                    self.crawler._ensure_driver_alive()
+                return
+            
+            # 检查新文章并发送通知
+            new_articles = []
+            for article in latest_articles:
+                if not self.db.is_article_notified(article['article_id']):
+                    new_articles.append(article)
+            
             if new_articles:
-                success_count = self.send_notifications(new_articles)
-                logging.info(f"通知发送完成，成功: {success_count}/{len(new_articles)}")
-
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-            logging.info(f"检查周期完成，耗时: {duration:.2f}秒")
-
+                logging.info(f"发现 {len(new_articles)} 篇新文章")
+                for article in new_articles:
+                    if self.notifier.send_article_notification(article):
+                        self.db.mark_article_notified(article['article_id'])
+                        logging.info(f"已通知新文章: {article['title']}")
+                    else:
+                        logging.error(f"通知发送失败: {article['title']}")
+            else:
+                logging.info("没有发现新文章")
+                
         except Exception as e:
             logging.error(f"检查周期执行失败: {e}")
+            # 如果是WebDriver相关错误，尝试重新初始化爬虫
+            if "no such window" in str(e) or "web view not found" in str(e):
+                logging.info("检测到WebDriver失效，重新初始化爬虫...")
+                try:
+                    self.crawler.close()
+                    self._init_crawler()
+                    logging.info("爬虫重新初始化成功")
+                except Exception as init_e:
+                    logging.error(f"爬虫重新初始化失败: {init_e}")
 
     def test_system(self, send_test_notification: bool = True) -> bool:
         """
