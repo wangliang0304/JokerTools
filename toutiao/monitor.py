@@ -171,17 +171,20 @@ class ArticleMonitor:
             # 检查新文章并发送通知
             new_articles = []
             for article in latest_articles:
-                if not self.db.is_article_notified(article['article_id']):
+                if not self.database.article_exists(article['article_id']):
                     new_articles.append(article)
             
             if new_articles:
                 logging.info(f"发现 {len(new_articles)} 篇新文章")
                 for article in new_articles:
-                    if self.notifier.send_article_notification(article):
-                        self.db.mark_article_notified(article['article_id'])
-                        logging.info(f"已通知新文章: {article['title']}")
-                    else:
-                        logging.error(f"通知发送失败: {article['title']}")
+                    # 先添加到数据库
+                    if self.database.add_article(article):
+                        # 发送通知
+                        if self.notifier.send_article_notification(article):
+                            self.database.mark_as_notified(article['article_id'])
+                            logging.info(f"已通知新文章: {article['title']}")
+                        else:
+                            logging.error(f"通知发送失败: {article['title']}")
             else:
                 logging.info("没有发现新文章")
                 
@@ -192,7 +195,7 @@ class ArticleMonitor:
                 logging.info("检测到WebDriver失效，重新初始化爬虫...")
                 try:
                     self.crawler.close()
-                    self._init_crawler()
+                    self.crawler = ToutiaoSeleniumCrawler()
                     logging.info("爬虫重新初始化成功")
                 except Exception as init_e:
                     logging.error(f"爬虫重新初始化失败: {init_e}")
@@ -271,7 +274,7 @@ class ArticleMonitor:
             scheduler = BlockingScheduler()
 
             # 添加定时任务
-            interval_minutes = self.config['toutiao']['check_interval_minutes']
+            interval_minutes = self.config['toutiao'][ 'check_interval_minutes']
             scheduler.add_job(
                 func=self.run_check_cycle,
                 trigger=IntervalTrigger(minutes=interval_minutes),
